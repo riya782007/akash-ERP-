@@ -3,29 +3,21 @@
 ## Local use
 
 1. Install Node.js 24 from the official distribution.
-2. Start `npm run demo` for demonstration, or set a strong `ERP_ADMIN_PASSWORD` and run `npm start` for a clean database.
+2. Run `npm install`, then `npm run demo` for demonstration, or set a strong `ERP_ADMIN_PASSWORD` and run `npm start` for a clean database.
 3. Open the printed localhost URL. Live username is `owner` on first setup.
 4. Keep the terminal/server running. All clients talk to the same server, not browser-local storage.
 
 A prepared local preview may use port 4311 instead of the default 4310. It is not a publicly hosted site. If the preview is stopped, use `npm run demo` and open the URL it prints.
 
-## Production packaging
+## Production deployment
 
-A Dockerfile is included. It runs Node as a non-root user, exposes port 4310 and expects `/app/data` to be a durable volume. Supply `ERP_ADMIN_PASSWORD` through your deployment's secret manager on first start. Do not bake it into the image. Use a single replica; do not put SQLite on an ephemeral or unreliable shared filesystem.
-
-Build: `docker build -t mehers-erp .`
-
-Run behind an HTTPS reverse proxy on an approved host, with a persistent volume at `/app/data`, `ERP_SECURE_COOKIE=1`, and the application port restricted to the proxy. Hostname, TLS, persistent-volume ownership, backup destination and monitoring must be configured on the selected host. No hosting account or production domain was selected for this repository handoff. The Docker image was supplied as configuration; it has not been built in this environment.
-
-This Node/SQLite runtime is not a static site and cannot be deployed unchanged to GitHub Pages or a Cloudflare Worker. Do not publish the frontend alone and imply its API is live.
+Use Vercel + Supabase as described in [DEPLOY.md](DEPLOY.md). The Dockerfile remains as an alternative host for the same code; it also needs `DATABASE_URL`.
 
 ## Backup and recovery
 
-Run `npm run backup` with `ERP_DB` set to the intended database. The command uses the SQLite online backup API, refuses an existing destination and validates the result with `PRAGMA integrity_check`. Its default destination is a new file in `data/backups/`.
+Run `DATABASE_URL=… npm run backup`. It exports every ERP table to a new JSON file in `data/backups/` and refuses to write if the ledger does not balance. Schedule it (for example weekly from a trusted machine) and keep copies encrypted and offsite; Supabase paid plans additionally keep daily backups and point-in-time recovery. Treat employee, customer and device data as confidential.
 
-Schedule it daily on the deployment host and copy verified snapshots to encrypted offsite storage with retention and failure alerts. Those external schedules and credentials are not configured here. Treat employee, customer and device data as confidential.
-
-To restore: stop the application; take a separate backup of the current state; copy the chosen verified snapshot to a **new** database filename; set `ERP_DB` to that filename; start the server; verify counts and trial balance before admitting users. This avoids overwriting the original database or mixing its WAL files with restored data. Test restoration using a separate instance before live handover.
+To restore, create a fresh Supabase project (or branch), point a local `npm start` at it with `DATABASE_URL` so the schema is created, import the JSON tables in dependency order (users, products, units, employees, documents, then the rest), and verify counts and the trial balance before switching Vercel's `DATABASE_URL`. Rehearse this once before live handover.
 
 ## Before production billing
 

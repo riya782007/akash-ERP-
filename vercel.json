@@ -1,1 +1,25 @@
-{"framework":null,"buildCommand":"npm run vercel-build","outputDirectory":"public","functions":{"api/index.mjs":{"maxDuration":60}},"rewrites":[{"source":"/api/:path*","destination":"/api/index?route=:path*"}]}
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm install",
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "public",
+  "regions": ["bom1"],
+  "functions": {
+    "api/index.mjs": { "maxDuration": 60, "includeFiles": "server/schema.sql" }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index?route=:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "same-origin" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" }
+      ]
+    }
+  ]
+}

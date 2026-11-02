@@ -11,8 +11,14 @@
     "start": "node server/index.mjs",
     "demo": "node server/index.mjs --demo",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check server/index.mjs && node --check server/db.mjs && node --check server/operations.mjs && node --check public/app.js",
+    "check": "node --check server/index.mjs && node --check server/app.mjs && node --check server/db.mjs && node --check server/operations.mjs && node --check server/ai.mjs && node --check api/index.mjs && node --check public/app.js",
     "backup": "node scripts/backup.mjs",
-    "vercel-build": "node --check public/app.js"
+    "vercel-build": "npm run check"
+  },
+  "dependencies": {
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14"
   }
 }

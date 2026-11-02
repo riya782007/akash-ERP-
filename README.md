@@ -2,17 +2,18 @@
 
 A custom retail operations application for **Mehers, Boudh, Odisha**, built by **Newvora**. One shop, with customer deposits and staff advances. The UI combines a calm store overview with IMEI-aware billing and connected operational records.
 
-**Status:** runnable first release for local evaluation and client acceptance testing. This repository is not evidence of a production deployment. Demo mode contains fictional transactions and synthetic IMEIs. Do not enter real customer information into demo mode.
+**Status:** first release, deployable on **Vercel + Supabase** with optional AI assist on OpenAI's lowest-cost model. **To go live, follow [docs/DEPLOY.md](docs/DEPLOY.md)** — it lists every environment variable. Demo mode contains fictional transactions and synthetic IMEIs. Do not enter real customer information into demo mode.
 
 ## Start the demo
 
-Requires **Node.js 24 or newer**. There are no third-party runtime dependencies and no install/build step.
+Requires **Node.js 24**. The only runtime dependency is the `postgres` driver; local runs use an embedded Postgres (PGlite) so no database install is needed.
 
 ```sh
+npm install
 npm run demo
 ```
 
-Open http://127.0.0.1:4310 and choose **Explore demo workspace**. Demo records persist in `data/demo.sqlite`, separate from the live database. Demo binds only to loopback. Use `PORT` to select another port.
+Open http://127.0.0.1:4310 and choose **Explore demo workspace**. Demo data lives in memory and resets on restart. Demo binds only to loopback. Use `PORT` to select another port.
 
 ## Start a clean installation
 
@@ -22,7 +23,7 @@ Set `ERP_ADMIN_PASSWORD` to a unique secret of at least 12 characters in your sh
 npm start
 ```
 
-The first start creates username `owner` with that password. Subsequent starts use the stored password hash; changing the environment variable does not reset it. `data/mehers.sqlite` starts with no sample products, employees, or financial records. Add store details, users, employees and products through the UI; record owner capital and receive opening stock through the purchase workflow. Keep credentials out of Git and shell command history. `.env.example` documents variables; the server does not automatically load dotenv files.
+The first start creates username `owner` with that password. Subsequent starts use the stored password hash; changing the environment variable does not reset it. Set `DATABASE_URL` to use Supabase; otherwise a local database is created in `data/pglite`. It starts with no sample products, employees, or financial records. Add store details, users, employees and products through the UI; record owner capital and receive opening stock through the purchase workflow. Keep credentials out of Git and shell command history. `.env.example` documents variables; the server does not automatically load dotenv files.
 
 ## Included workflows
 
@@ -47,6 +48,7 @@ The first start creates username `owner` with that password. Subsequent starts u
 | Expenses | Category, party, payment account and expense journal |
 | Closing report | Cash-book balance, physical count, discrepancy note, payment breakdown and daily lock |
 | Search | Global customer/document/product/IMEI search, table filters and CSV export |
+| AI assist (optional) | Today's brief, ask-your-shop, restock plan, repair intake checklist, multilingual WhatsApp repair updates, product smart fill — see [DEPLOY](docs/DEPLOY.md#ai-features-gpt-6-luna) |
 | Admin | Store profile, product price updates, employees, four roles, access revocation and audit events |
 
 All money is stored as integer paise. Configured sales tax is stored in basis points and extracted from tax-inclusive prices. Dates use Asia/Kolkata. Posted sales retain their original prices even when the product catalog changes.
@@ -59,18 +61,18 @@ npm test
 npm run backup
 ```
 
-Tests cover transaction rollback, stock availability, duplicate IMEIs, returns, payment balancing, idempotency, role restrictions, service transitions, advances, payroll, closing locks and HTTP access controls. The HTTP suite starts an isolated temporary server and database. GitHub Actions runs checks and tests on Node 24.
+Tests cover transaction rollback, stock availability, duplicate IMEIs, returns, payment balancing, idempotency, role restrictions, service transitions, advances, payroll, closing locks and HTTP access controls. The HTTP suite starts an isolated temporary server and in-memory database. AI tests use a fake OpenAI and assert that no customer names, phone numbers or IMEIs are sent. GitHub Actions runs checks and tests on Node 24.
 
-`npm run backup` uses SQLite's online backup API and validates the copied database. Set `ERP_DB` to select a database (for example `data/demo.sqlite`). Backups contain sensitive information and are excluded from Git. See [operations](docs/OPERATIONS.md) for recovery and deployment.
+`npm run backup` exports every table from `DATABASE_URL` to JSON after verifying the ledger balances. Backups contain sensitive information and are excluded from Git. See [operations](docs/OPERATIONS.md) for recovery and deployment.
 
 ## Important boundaries before live use
 
 - This is an operational retail ERP v1, not certified GST/accounting/payroll software. HSN/SAC, CGST/SGST/IGST handling, input tax credit, statutory invoice numbering, GST returns and e-invoice integration are not implemented. The printable document is a sales receipt. Confirm tax requirements and implement the approved invoice format before production billing.
-- Payments and lender settlements are manual records; no bank, UPI gateway, card terminal, biometric clock, SMS or WhatsApp integration is connected.
+- Payments and lender settlements are manual records; no bank, UPI gateway, card terminal, biometric clock or SMS integration is connected. AI customer updates open WhatsApp with a drafted message; staff press send themselves.
 - Incentives and other salary deductions require approved manual values. Attendance proration, PF/ESI/TDS and statutory payroll are not calculated.
 - One shop and two internal locations are configured. Transfers are immediate internal moves, not interbranch dispatch/receipt workflows.
 - No offline write queue or sync conflict handling. The server must be available for every save. Current listings load the store snapshot; pagination and indexed server-side search are the next step for large histories.
 - Customer and staff credits match names exactly (case-insensitive); stable party IDs, customer/supplier master records and collision handling are needed before importing a large historical ledger.
-- Owner-managed account recovery, MFA, automatic offsite backup scheduling and a hosted HTTPS deployment remain deployment work. Application audit history is not an externally signed, tamper-proof log.
+- Owner-managed account recovery, MFA and automatic offsite backup scheduling remain deployment work. Application audit history is not an externally signed, tamper-proof log.
 
-See [research and UX rationale](docs/RESEARCH.md), [architecture](docs/ARCHITECTURE.md), and [acceptance checklist](docs/ACCEPTANCE.md). No real sales records, credentials or database files belong in the public repository.
+See [deployment](docs/DEPLOY.md), [research and UX rationale](docs/RESEARCH.md), [architecture](docs/ARCHITECTURE.md), and [acceptance checklist](docs/ACCEPTANCE.md). No real sales records, credentials or database files belong in the public repository.

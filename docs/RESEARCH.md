@@ -41,7 +41,7 @@ These are hypotheses inferred from the business type, not interview findings.
 
 ## Build-versus-configure recommendation
 
-For this narrow, one-shop flow, a custom interface can be quicker to learn than a general enterprise menu. A compact modular server and SQLite transaction engine avoid deployment complexity. If the client requires statutory accounting, mature payroll, complex procurement or multiple branches, evaluate configuring ERPNext/Odoo or integrating a dedicated accounting system instead of recreating an entire enterprise suite. A custom screen is not a substitute for audited business rules.
+For this narrow, one-shop flow, a custom interface can be quicker to learn than a general enterprise menu. A compact modular server on Vercel with a Supabase Postgres transaction engine avoids deployment complexity. If the client requires statutory accounting, mature payroll, complex procurement or multiple branches, evaluate configuring ERPNext/Odoo or integrating a dedicated accounting system instead of recreating an entire enterprise suite. A custom screen is not a substitute for audited business rules.
 
 ## Next client validation session
 

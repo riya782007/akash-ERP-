@@ -2,9 +2,9 @@
 
 ## Runtime and boundaries
 
-Node 24 serves same-origin static assets and a small JSON API. `server/db.mjs` owns schema and initial data, `server/operations.mjs` owns business commands and snapshot redaction, and `server/index.mjs` owns HTTP authentication, sessions and transport controls. `public/app.js` provides the UI. No third-party client runtime or external CDN is required.
+On Vercel, `public/` is served as static files and `api/index.mjs` is a single serverless function; locally, `server/index.mjs` serves both. `server/db.mjs` owns the Postgres connection (Supabase via `postgres`, or embedded PGlite locally) and `server/schema.sql`, `server/operations.mjs` owns business commands and snapshot redaction, `server/app.mjs` owns HTTP authentication, sessions and transport controls, and `server/ai.mjs` owns optional AI assistance. `public/app.js` provides the UI. No third-party client runtime or external CDN is required.
 
-The chosen unit of deployment is one Node process with a local durable SQLite volume. SQLite uses foreign keys, WAL and a busy timeout. This fits a single-shop evaluation with modest concurrent traffic; it is not a horizontally distributed architecture. Use PostgreSQL plus migrations, row-level locking, pagination and a job queue before moving to multiple application instances.
+Persistence is Supabase Postgres, reached through its transaction pooler (prepared statements disabled). Serverless instances may run concurrently; every write command takes a transaction-scoped advisory lock, so stock check-and-consume stays serialized exactly as before. Money columns are BIGINT paise. The schema is idempotent and applied on cold start; add versioned migrations before making breaking schema changes.
 
 ## Data model
 
@@ -20,18 +20,20 @@ The chosen unit of deployment is one Node process with a local durable SQLite vo
 - `audit`: actor, action, reference and timestamp.
 - `requests`: idempotent command results scoped to the initiating user.
 - `settings`: store profile.
+- `ai_requests`: per-day AI request cache and daily cap counter.
+- `login_attempts`: login throttling by hashed client IP.
 
 ## Transaction invariants
 
-Each command runs in `BEGIN IMMEDIATE` / `COMMIT`, with rollback on any failure. The command validates role and closing state, validates inputs and current stock, writes the document, writes stock and accounting changes, records the audit event and stores the idempotent response. Repeat submission with the same request key returns the prior result without a second sale. The SQLite write lock serializes stock check-and-consume operations.
+Each command runs in a Postgres transaction holding `pg_advisory_xact_lock`, with rollback on any failure. The command validates role and closing state, validates inputs and current stock, writes the document, writes stock and accounting changes, records the audit event and stores the idempotent response. Repeat submission with the same request key returns the prior result without a second sale. The advisory lock serializes stock check-and-consume operations across all serverless instances (tested with simultaneous sales of the same handset).
 
 The server derives sale prices and taxes from stored products; it never trusts a client-supplied invoice total. Payments plus applied credit must equal the bill total. Duplicate units and already-sold units are rejected. A returned unit is quarantined until inspection. A return validates original document membership and cannot reverse the same sale line twice. Product edits do not reprice historical invoices or change acquisition costs.
 
 ## Security controls and limits
 
-Same-origin JSON POST requests; no permissive CORS. HttpOnly, SameSite=Strict, eight-hour session cookies. Secure cookies are opt-in for HTTPS deployments. Credentials use random salts and scrypt. Session tokens are stored hashed; login failures are throttled in memory. Role checks happen on every command, and snapshots remove stock costs/payroll data from cashier responses and isolate the technician's service view. Disabled accounts lose sessions. Static file paths are allowlisted, not arbitrary disk paths. HTML derived from data is escaped. CSV cells beginning with spreadsheet formula characters are neutralized. Security headers and CSP disallow remote scripts and framing.
+Same-origin JSON POST requests; no permissive CORS. HttpOnly, SameSite=Strict, eight-hour session cookies. Secure cookies are automatic on Vercel/HTTPS. Credentials use random salts and scrypt. Session tokens are stored hashed; login failures are throttled per hashed IP in the database (shared across serverless instances). Row Level Security blocks Supabase's public Data API. Role checks happen on every command, and snapshots remove stock costs/payroll data from cashier responses and isolate the technician's service view. Disabled accounts lose sessions. Static file paths are allowlisted, not arbitrary disk paths. HTML derived from data is escaped. CSV cells beginning with spreadsheet formula characters are neutralized. Security headers and CSP disallow remote scripts and framing.
 
-Local demo access is deliberately passwordless and restricted to loopback, including a Host check. Never expose it through a tunnel or proxy. No demo endpoint exists in live mode. Do not mount the SQLite data folder into a public static directory.
+Local demo access is deliberately passwordless and restricted to loopback, including a Host check. Never expose it through a tunnel or proxy. No demo endpoint exists in live mode. Never put `DATABASE_URL` or `OPENAI_API_KEY` in client-side code or `NEXT_PUBLIC_`-style variables.
 
 Limits: no MFA, no per-record technician assignment restriction, no field-level encryption, no external audit signing, no migration framework beyond initial schema, and no formal penetration test. Name-based credit matching is a v1 limitation. No absolute claim of “production secure” is made.
 
