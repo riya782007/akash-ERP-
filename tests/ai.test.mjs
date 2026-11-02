@@ -1,0 +1,5 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {openDatabase,seedDemo} from '../server/db.mjs';
+import {assist} from '../server/ai.mjs';
+test('AI missing key, caching, cap and privacy',async()=>{const db=openDatabase();seedDemo(db);const user=db.prepare('SELECT * FROM users LIMIT 1').get();try{await assert.rejects(()=>assist(db,user,{task:'daily'},{}),/not configured/);let calls=0;const fake=async(url,request)=>{calls++;const payload=JSON.parse(request.body);assert.equal(payload.store,false);assert.ok(!payload.input.includes('990000'));assert.equal(payload.max_output_tokens,700);return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:'Review low stock.'}]}]})};};const env={OPENAI_API_KEY:'test-only',AI_DAILY_REQUEST_LIMIT:'1'};assert.equal((await assist(db,user,{task:'daily'},env,fake)).cached,false);assert.equal((await assist(db,user,{task:'daily'},env,fake)).cached,true);assert.equal(calls,1);await assert.rejects(()=>assist(db,user,{task:'message',note:'Ready for collection'},env,fake),/limit/);}finally{db.close();}});

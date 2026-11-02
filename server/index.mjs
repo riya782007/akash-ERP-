@@ -1,3 +1,4 @@
+import { assist } from './ai.mjs';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
@@ -41,7 +42,7 @@ const server=createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(demo&&!['127.0.0.1','localhost','[::1]'].includes((req.headers.host||'').replace(/:\d+$/,'')))throw new BusinessError('Demo accepts localhost requests only',403);
   if(req.method==='POST'){
-   if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`&&req.headers.origin!==`https://${req.headers.host}`)throw new BusinessError('Cross-origin requests are not allowed',403);
+   if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`&&req.headers.origin!==`https://${req.headers.host}`&&req.headers.origin!==process.env.ERP_PUBLIC_ORIGIN)throw new BusinessError('Cross-origin requests are not allowed',403);
    if(!req.headers['content-type']?.includes('application/json'))throw new BusinessError('Use application/json',415);
    const input=await body(req);
    if(url.pathname==='/api/login'){
@@ -50,6 +51,7 @@ const server=createServer(async(req,res)=>{
    }
    if(url.pathname==='/api/demo'&&demo){session(res,db.prepare("SELECT * FROM users WHERE id='demo-owner'").get());return json(res,200,{ok:true});}
    const user=authenticate(req);if(!user)throw new BusinessError('Please sign in',401);
+   if(url.pathname==='/api/ai')return json(res,200,await assist(db,user,input));
    if(url.pathname==='/api/logout'){const token=req.headers.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith('mehers_session=')).slice(15);db.prepare('DELETE FROM sessions WHERE token=?').run(digest(token));res.setHeader('Set-Cookie','mehers_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return json(res,200,{ok:true});}
    if(url.pathname.startsWith('/api/actions/')){
     const key=req.headers['idempotency-key'];if(typeof key!=='string'||key.length<8||key.length>100)throw new BusinessError('A valid idempotency key is required');
