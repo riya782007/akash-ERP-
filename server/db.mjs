@@ -59,7 +59,12 @@ async function openPostgres(url) {
     onnotice: () => {}
   });
   const run = target => async (text, params) => [...await target.unsafe(text, params.map(v => v === undefined ? null : v))];
-  return new Db(run(sql), fn => sql.begin(tx => fn(run(tx))), text => sql.unsafe(text), () => sql.end({ timeout: 5 }));
+  // Supabase's transaction pooler does not cope with pipelined queries, so send one query (or one
+  // transaction) at a time per instance. Round trips are ~2 ms with Vercel bom1 + Supabase Mumbai.
+  let chain = Promise.resolve();
+  const serial = fn => { const next = chain.then(fn, fn); chain = next.catch(() => {}); return next; };
+  const pooled = run(sql);
+  return new Db((text, params) => serial(() => pooled(text, params)), fn => serial(() => sql.begin(tx => fn(run(tx)))), text => serial(() => sql.unsafe(text)), () => sql.end({ timeout: 5 }));
 }
 
 // Local development, demo and tests: embedded Postgres (PGlite). Optional dev dependency.
@@ -73,7 +78,8 @@ async function openPGlite(dir) {
 
 export async function openDatabase(url = process.env.DATABASE_URL, { migrate = true } = {}) {
   const db = url && /^postgres(ql)?:\/\//.test(url) ? await openPostgres(url) : await openPGlite(url || undefined);
-  if (migrate) {
+  // Apply the schema only when the newest table is missing, so cold starts never take table locks.
+  if (migrate && !(await db.prepare("SELECT to_regclass('public.login_attempts') t").get()).t) {
     await db.exec(SCHEMA);
     // Defence in depth on Supabase: RLS (enabled in the schema, no policies) already blocks the public
     // Data API; also revoke table privileges from Supabase's API roles when they exist.

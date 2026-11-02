@@ -30,6 +30,8 @@ CREATE INDEX IF NOT EXISTS ledger_document_idx ON ledger(document_id);
 CREATE INDEX IF NOT EXISTS movements_unit_idx ON movements(unit_id);
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS ai_requests_date_idx ON ai_requests(date);
+CREATE INDEX IF NOT EXISTS movements_document_idx ON movements(document_id);
+CREATE INDEX IF NOT EXISTS sale_lines_unit_idx ON sale_lines(unit_id);
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
