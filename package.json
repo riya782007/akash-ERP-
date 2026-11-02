@@ -1,0 +1,17 @@
+{
+  "name": "mehers-erp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mehers retail operations, by Newvora",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "demo": "node server/index.mjs --demo",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check server/index.mjs && node --check server/db.mjs && node --check server/operations.mjs && node --check public/app.js",
+    "backup": "node scripts/backup.mjs"
+  }
+}
